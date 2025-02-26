@@ -1,0 +1,39 @@
+{
+  "manifest_version": 2,
+  "name": "QuteFox",
+  "version": "1.0",
+  "description": "Adds qutebrowser-like keybindings and modes to Firefox",
+  "permissions": [
+    "tabs",
+    "activeTab",
+    "storage",
+    "clipboardWrite",
+    "search",
+    "tabs",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_start"
+    }
+  ],
+  "browser_action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": ["mode-indicator.html"]
+}
