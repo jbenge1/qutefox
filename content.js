@@ -203,7 +203,7 @@ function processCommandBuffer() {
     showUrlBar(true);
   } else if (commandBuffer === 'go') {
     editCurrentUrl(false);
-  } else if (commandBuffer === 'gshifto' || commandBuffer === 'go') {
+  } else if (commandBuffer === 'gshifto' || commandBuffer === 'gshifto') {
     editCurrentUrl(true);
   }
   
@@ -273,7 +273,7 @@ function showCommandBar() {
   setMode('command');
   inputBox = document.createElement('input');
   inputBox.type = 'text';
-  inputBox.id = 'qutefox-command-bar';
+  inputBox.id = 'qutefox-url-bar';
   inputBox.placeholder = 'Enter command...';
   inputBox.classList.add('qutefox-input');
   document.body.appendChild(inputBox);
@@ -347,6 +347,7 @@ function copyToClipboard(text) {
 
 // Show a temporary notification
 function showNotification(message) {
+  console.log('here?');
   const notification = document.createElement('div');
   notification.textContent = message;
   notification.className = 'qutefox-notification';

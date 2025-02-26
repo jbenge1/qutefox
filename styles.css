@@ -154,7 +154,7 @@
 
 /* URL bar suggestions styles */
 #qutefox-suggestions {
-  position: absolute;
+  position: fixed;
   background-color: rgba(255, 255, 255, 0.98);
   border-radius: var(--qutefox-border-radius);
   box-shadow: var(--qutefox-box-shadow);
@@ -223,3 +223,53 @@
     color: #f0f0f0;
   }
 }
+
+/* Notification styling */
+/* Notification Banner Styles */
+.qutefox-notification {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 16px;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  z-index: 100000;
+  border-radius: var(--qutefox-border-radius);
+  box-shadow: var(--qutefox-box-shadow);
+  backdrop-filter: blur(10px);
+  opacity: 0.95;
+  color: var(--qutefox-text);
+  background-color: var(--qutefox-normal-bg-transparent);
+  transition: var(--qutefox-transition);
+  animation: qutefox-fade-in 0.2s ease-out, qutefox-fade-out 0.5s ease-in 1.5s forwards;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .qutefox-notification {
+    background-color: rgba(45, 45, 45, 0.95);
+    color: #f0f0f0;
+  }
+}
+
+/* Notification Fade In/Out Animations */
+@keyframes qutefox-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 0.95;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes qutefox-fade-out {
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+}
+
