@@ -2,6 +2,29 @@
 let recentlyClosedTabs = [];
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+
+  if (message.action === "getHistorySuggestions") {
+    browser.history.search({
+      text: message.query,
+      maxResults: 5
+    }).then(historyItems => {
+      sendResponse({
+        success: true,
+        suggestions: historyItems.map(item => ({
+          url: item.url,
+          title: item.title || item.url,
+          source: 'history'
+        }))
+      });
+    }).catch(error => {
+      console.error('Error fetching history:', error);
+      sendResponse({
+        success: false,
+        error: error.toString()
+      });
+    });
+    return true; // Important: indicates we will send a response asynchronously
+  }
   if (message.type === 'openTab') {
     browser.tabs.create({ url: message.url });
   } else if (message.type === 'closeTab') {

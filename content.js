@@ -8,7 +8,7 @@ let recentlyClosedTabs = [];
 let searchText = '';
 let searchIndex = 0;
 let zoomLevel = 80; // Base zoom level in percentage
-let open = false, tabOpen = false;
+let open = false, tabopen = false;
 
 // Initialize the extension
 function init() {
@@ -42,8 +42,8 @@ function storeTabInfo() {
 // Create the mode indicator
 function createModeIndicator() {
   modeIndicator = document.createElement('div');
-  modeIndicator.id = 'qutebrowser-mode-indicator';
-  modeIndicator.className = 'qutebrowser-normal-mode';
+  modeIndicator.id = 'qutefox-mode-indicator';
+  modeIndicator.className = 'qutefox-normal-mode';
   modeIndicator.textContent = 'NORMAL';
   document.body.appendChild(modeIndicator);
 }
@@ -53,7 +53,7 @@ function setMode(newMode) {
   mode = newMode;
   
   if (modeIndicator) {
-    modeIndicator.className = `qutebrowser-${newMode}-mode`;
+    modeIndicator.className = `qutefox-${newMode}-mode`;
     modeIndicator.textContent = newMode.toUpperCase();
   }
 }
@@ -73,8 +73,11 @@ function handleKeydown(event) {
       event.preventDefault();
       event.stopPropagation();
     } else if (event.key === 'Enter') {
-      const value = open ? tabopen ? inputBox.value : 'open ' + inputBox.value : 'tabopen ' + inputBox.value
-      tabOpen = false, open = false;
+      let value;
+      if(open) value = 'open ' + inputBox.value;
+      else if(tabopen) value = 'tabopen ' + inputBox.value;
+      else value = inputBox.value;
+      tabopen = false, open = false;
       removeInputBox();
       setMode('normal');
       processCommand(value);
@@ -146,23 +149,23 @@ function processCommandBuffer() {
   console.log('command buffer: ');
   console.log(commandBuffer);
   // Navigation commands
-  if (commandBuffer === 'h') {
-    browser.runtime.sendMessage({ type: 'goBack' });
-  } else if (commandBuffer === 'l') {
-    browser.runtime.sendMessage({ type: 'goForward' });
-  } else if (commandBuffer === 'j') {
+  // if (commandBuffer === 'h') {
+  //   browser.runtime.sendMessage({ type: 'goBack' });
+  // } else if (commandBuffer === 'l') {
+  //   browser.runtime.sendMessage({ type: 'goForward' });
+  // } 
+  if (commandBuffer === 'j') {
     window.scrollBy(0, 50);
   } else if (commandBuffer === 'k') {
     window.scrollBy(0, -50);
   } else if (commandBuffer === 'gg') {
     window.scrollTo(0, 0);
+  }else if (commandBuffer === 'shiftg') {
+    window.scrollTo(0, document.body.scrollHeight);
   } else if (commandBuffer === 'g' || commandBuffer === 'y' || commandBuffer === 'shift') {
     // Wait for next key
     return;
-  } else if (commandBuffer === 'shiftg') {
-    window.scrollTo(0, document.body.scrollHeight);
-  }
-  
+  }   
   // Tab commands
   else if (commandBuffer === 'shiftk' || commandBuffer === 'gt') {
     browser.runtime.sendMessage({ type: 'nextTab' });
@@ -230,8 +233,10 @@ function processCommandBuffer() {
   // History and bookmarks (b, H)
   else if (commandBuffer === 'b') {
     // Open bookmarks (would require additional implementation)
-  } else if (commandBuffer === 'H') {
-    // Open history (would require additional implementation)
+  } else if (commandBuffer === 'shifth') {
+      browser.runtime.sendMessage({ type: 'goBack' });
+  } else if(commandBuffer === 'shiftl'){
+    browser.runtime.sendMessage({type: 'goForward'});
   }
   
   // Clear command buffer for completed commands
@@ -269,9 +274,9 @@ function showCommandBar() {
   setMode('command');
   inputBox = document.createElement('input');
   inputBox.type = 'text';
-  inputBox.id = 'qutebrowser-command-bar';
+  inputBox.id = 'qutefox-command-bar';
   inputBox.placeholder = 'Enter command...';
-  inputBox.classList.add('qutebrowser-input');
+  inputBox.classList.add('qutefox-input');
   document.body.appendChild(inputBox);
   inputBox.focus();
 }
@@ -281,11 +286,12 @@ function showUrlBar(newTab) {
   setMode('command');
   inputBox = document.createElement('input');
   inputBox.type = 'text';
-  inputBox.id = 'qutebrowser-url-bar';
+  inputBox.id = 'qutefox-url-bar';
   inputBox.placeholder = newTab ? 'Open URL in new tab...' : 'Open URL1...';
-  inputBox.classList.add('qutebrowser-input');
+  inputBox.classList.add('qutefox-input');
   document.body.appendChild(inputBox);
   inputBox.focus();
+  setupUrlBarSuggestions(document.getElementById('qutefox-url-bar'));
 }
 
 // Edit current URL
@@ -293,9 +299,9 @@ function editCurrentUrl(newTab) {
   setMode('command');
   inputBox = document.createElement('input');
   inputBox.type = 'text';
-  inputBox.id = 'qutebrowser-url-bar';
+  inputBox.id = 'qutefox-url-bar';
   inputBox.value = window.location.href;
-  inputBox.classList.add('qutebrowser-input');
+  inputBox.classList.add('qutefox-input');
   document.body.appendChild(inputBox);
   inputBox.focus();
   inputBox.select();
@@ -344,7 +350,7 @@ function copyToClipboard(text) {
 function showNotification(message) {
   const notification = document.createElement('div');
   notification.textContent = message;
-  notification.className = 'qutebrowser-notification';
+  notification.className = 'qutefox-notification';
   document.body.appendChild(notification);
   
   // Remove after 2 seconds
@@ -367,7 +373,7 @@ function highlightLinks() {
   const linkOverlays = [];
   
   // Remove existing link hints
-  document.querySelectorAll('.qutebrowser-link-hint').forEach(hint => hint.remove());
+  document.querySelectorAll('.qutefox-link-hint').forEach(hint => hint.remove());
   
   // Create a hint for each link
   links.forEach((link, i) => {
@@ -376,7 +382,7 @@ function highlightLinks() {
       
       // Create the link hint
       const hint = document.createElement('div');
-      hint.className = 'qutebrowser-link-hint';
+      hint.className = 'qutefox-link-hint';
       hint.textContent = i.toString(36); // Base-36 for shorter hints
       hint.style.top = `${rect.top + window.scrollY}px`;
       hint.style.left = `${rect.left + window.scrollX}px`;
@@ -433,9 +439,9 @@ function startSearch() {
   // Create search box
   inputBox = document.createElement('input');
   inputBox.type = 'text';
-  inputBox.id = 'qutebrowser-search-box';
+  inputBox.id = 'qutefox-search-box';
   inputBox.placeholder = 'Search...';
-  inputBox.classList.add('qutebrowser-input');
+  inputBox.classList.add('qutefox-input');
   document.body.appendChild(inputBox);
   
   // Focus the search box
@@ -463,3 +469,186 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
+
+// Search bar suggestions
+// URL bar suggestions from history
+function setupUrlBarSuggestions(urlBarElement) {
+  // Create suggestions container
+  const suggestionsContainer = document.createElement('div');
+  suggestionsContainer.id = 'qutefox-suggestions';
+  document.body.appendChild(suggestionsContainer);
+  
+  // Track selected suggestion
+  let selectedIndex = -1;
+  let suggestions = [];
+  
+  // Function to fetch history suggestions
+  async function fetchHistorySuggestions(query) {
+    return new Promise((resolve) => {
+      if (!query || query.trim() === '') {
+        resolve([]);
+        return;
+      }
+      
+      browser.runtime.sendMessage({
+        action: "getHistorySuggestions",
+        query: query
+      }).then(response => {
+        if (response && response.success) {
+          resolve(response.suggestions);
+        } else {
+          console.error('Error fetching history:', response?.error || 'Unknown error');
+          resolve([]);
+        }
+      }).catch(error => {
+        console.error('Error sending message:', error);
+        resolve([]);
+      });
+    });
+  } 
+  
+  // Show suggestions
+  function showSuggestions(items) {
+    suggestions = items;
+    selectedIndex = -1;
+    
+    if (items.length === 0) {
+      suggestionsContainer.style.display = 'none';
+      return;
+    }
+    
+    // Update position to match URL bar
+    const urlBarRect = urlBarElement.getBoundingClientRect();
+    suggestionsContainer.style.top = `${urlBarRect.bottom + 5}px`;
+    suggestionsContainer.style.left = `${urlBarRect.left}px`;
+    suggestionsContainer.style.width = `${urlBarRect.width}px`;
+    
+    // Build suggestions HTML
+    let html = '';
+    items.forEach((item, index) => {
+      const icon = item.source === 'history' ? '🕒' : '🔍';
+      html += `
+        <div class="qutefox-suggestion" data-index="${index}">
+          <span class="qutefox-suggestion-icon">${icon}</span>
+          <div class="qutefox-suggestion-content">
+            <div class="qutefox-suggestion-title">${escapeHtml(item.title)}</div>
+            <div class="qutefox-suggestion-url">${escapeHtml(item.url)}</div>
+          </div>
+        </div>
+      `;
+    });
+    
+    suggestionsContainer.innerHTML = html;
+    suggestionsContainer.style.display = 'block';
+    
+    // Add click handlers to suggestions
+    document.querySelectorAll('.qutefox-suggestion').forEach(el => {
+      el.addEventListener('click', () => {
+        const index = parseInt(el.dataset.index, 10);
+        if (suggestions[index]) {
+          urlBarElement.value = suggestions[index].url;
+          navigateToUrl(suggestions[index].url);
+          hideSuggestions();
+        }
+      });
+    });
+  }
+  
+  // Hide suggestions
+  function hideSuggestions() {
+    suggestionsContainer.style.display = 'none';
+  }
+  
+  // Escape HTML to prevent XSS
+  function escapeHtml(unsafe) {
+    return unsafe
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+  
+  // Navigate to URL
+  function navigateToUrl(url) {
+    // Check if it's a valid URL, if not, search it
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+    }
+    window.location.href = url;
+  }
+  
+  // Input event for real-time suggestions
+  urlBarElement.addEventListener('input', async () => {
+    const query = urlBarElement.value.trim();
+    const historyResults = await fetchHistorySuggestions(query);
+    showSuggestions(historyResults);
+  });
+  
+  // Key navigation for suggestions
+  urlBarElement.addEventListener('keydown', (e) => {
+    if (suggestions.length === 0) return;
+    
+    // Down arrow
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, suggestions.length - 1);
+      highlightSelectedSuggestion();
+    }
+    // Up arrow
+    else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, -1);
+      highlightSelectedSuggestion();
+    }
+    // Enter to select
+    else if (e.key === 'Enter') {
+      if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+        e.preventDefault();
+        urlBarElement.value = suggestions[selectedIndex].url;
+        navigateToUrl(suggestions[selectedIndex].url);
+        hideSuggestions();
+      } else if (urlBarElement.value.trim()) {
+        navigateToUrl(urlBarElement.value.trim());
+        hideSuggestions();
+      }
+    }
+    // Escape to close
+    else if (e.key === 'Escape') {
+      hideSuggestions();
+    }
+  });
+  
+  // Highlight the selected suggestion
+  function highlightSelectedSuggestion() {
+    document.querySelectorAll('.qutefox-suggestion').forEach((el, i) => {
+      if (i === selectedIndex) {
+        el.classList.add('qutefox-suggestion-selected');
+        // Optionally update the URL bar with the selected suggestion
+        urlBarElement.value = suggestions[i].url;
+      } else {
+        el.classList.remove('qutefox-suggestion-selected');
+      }
+    });
+  }
+  
+  // Close suggestions when clicking elsewhere
+  document.addEventListener('click', (e) => {
+    if (e.target !== urlBarElement && !suggestionsContainer.contains(e.target)) {
+      hideSuggestions();
+    }
+  });
+  
+  // Hide when URL bar loses focus
+  urlBarElement.addEventListener('blur', () => {
+    // Small delay to allow clicking on suggestions
+    setTimeout(() => {
+      if (!suggestionsContainer.contains(document.activeElement)) {
+        hideSuggestions();
+      }
+    }, 100);
+  });
+}
+
+// Call this function after creating the URL bar

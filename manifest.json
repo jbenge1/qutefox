@@ -5,6 +5,7 @@
   "description": "Adds qutebrowser-like keybindings and modes to Firefox",
   "permissions": [
     "tabs",
+    "history",
     "activeTab",
     "storage",
     "clipboardWrite",
