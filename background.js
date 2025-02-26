@@ -60,13 +60,41 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (recentlyClosedTabs.length > 10) {
       recentlyClosedTabs.pop();
     }
-  } else if (message.type === 'reopenTab') {
-    // Reopen most recently closed tab
-    if (recentlyClosedTabs.length > 0) {
-      const tabInfo = recentlyClosedTabs.shift();
-      browser.tabs.create({ url: tabInfo.url });
-    }
-  } else if (message.type === 'cloneTab') {
+  }
+  else if (message.type === 'reopenTab') {
+    browser.sessions.getRecentlyClosed({ maxResults: 1 })
+      .then(sessions => {
+        if (sessions.length > 0) {
+          const sessionInfo = sessions[0];
+          if (sessionInfo.tab) {
+            return browser.sessions.restore(sessionInfo.tab.sessionId);
+          } else if (sessionInfo.window) {
+            return browser.sessions.restore(sessionInfo.window.sessionId);
+          }
+          throw new Error("No valid session found");
+        } else {
+          throw new Error("No recently closed sessions");
+        }
+      })
+      .then(restoredSession => {
+        sendResponse({ success: true, session: restoredSession });
+      })
+      .catch(error => {
+        console.error("Error restoring session:", error);
+        sendResponse({ success: false, error: error.toString() });
+      });
+    return true; // For async response
+  }
+  // else if (message.type === 'reopenTab') {
+  //   // Reopen most recently closed tab
+  //   if (recentlyClosedTabs.length > 0) {
+  //     const tabInfo = recentlyClosedTabs.shift();
+  //     browser.tabs.create({ url: tabInfo.url });
+  //   }
+  // } 
+
+
+  else if (message.type === 'cloneTab') {
     // Clone current tab
     browser.tabs.duplicate(sender.tab.id);
   } else if (message.type === 'openDevTools') {
