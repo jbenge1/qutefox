@@ -4,6 +4,7 @@ let commandBuffer = '';
 let lastKeyTime = 0;
 let modeIndicator = null;
 let inputBox = null;
+let suggestionsContainer = null;
 let recentlyClosedTabs = [];
 let searchText = '';
 let searchIndex = 0;
@@ -146,8 +147,6 @@ function processKey(event) {
 
 // Process the current command buffer
 function processCommandBuffer() {
-  console.log('command buffer: ');
-  console.log(commandBuffer);
   // Navigation commands
   // if (commandBuffer === 'h') {
   //   browser.runtime.sendMessage({ type: 'goBack' });
@@ -287,7 +286,7 @@ function showUrlBar(newTab) {
   inputBox = document.createElement('input');
   inputBox.type = 'text';
   inputBox.id = 'qutefox-url-bar';
-  inputBox.placeholder = newTab ? 'Open URL in new tab...' : 'Open URL1...';
+  inputBox.placeholder = newTab ? 'Open URL in new tab...' : 'Open URL...';
   inputBox.classList.add('qutefox-input');
   document.body.appendChild(inputBox);
   inputBox.focus();
@@ -362,8 +361,16 @@ function showNotification(message) {
 // Remove input box
 function removeInputBox() {
   if (inputBox) {
+    removeInputSuggestion();
     inputBox.remove();
     inputBox = null;
+  }
+}
+
+function removeInputSuggestion() {
+  if(suggestionsContainer) {
+    suggestionsContainer.remove();
+    suggestionsContainer = null;
   }
 }
 
@@ -475,7 +482,7 @@ if (document.readyState === 'loading') {
 // URL bar suggestions from history
 function setupUrlBarSuggestions(urlBarElement) {
   // Create suggestions container
-  const suggestionsContainer = document.createElement('div');
+  suggestionsContainer = document.createElement('div');
   suggestionsContainer.id = 'qutefox-suggestions';
   document.body.appendChild(suggestionsContainer);
   
