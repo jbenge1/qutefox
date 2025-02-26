@@ -109,22 +109,6 @@ function handleKeydown(event) {
     event.preventDefault();
     event.stopPropagation();
   }
-  
-  // Handle search mode
-  if (mode === 'search') {
-    if (event.key === 'Escape') {
-      setMode('normal');
-      event.preventDefault();
-      event.stopPropagation();
-    } else if (event.key === 'Enter') {
-      searchText = inputBox.value;
-      performSearch(searchText);
-      removeInputBox();
-      setMode('normal');
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  }
 }
 
 // Process a key in normal mode
@@ -192,6 +176,7 @@ function processCommandBuffer() {
     setMode('insert');
   } else if (commandBuffer === ':' || commandBuffer === 'shift:') {
     showCommandBar();
+    // showCommandPrompt();
   }
   
   // Open URL commands
@@ -219,7 +204,7 @@ function processCommandBuffer() {
   
   // Search (/)
   else if (commandBuffer === '/') {
-    startSearch();
+    showFindPrompt();
   } else if (commandBuffer === 'n') {
     searchNext();
   }
@@ -459,9 +444,11 @@ function startSearch() {
 // Perform a search
 function performSearch(text) {
   searchText = text;
-  if (window.find) {
-    window.find(text);
-  }
+  browser.runtime.sendMessage({ type: 'find', query: text });
+}
+
+function stopSearch(text) {
+  browser.runtime.sendMessage({type: 'stopFind'});
 }
 
 // Search for next occurrence
@@ -659,4 +646,296 @@ function setupUrlBarSuggestions(urlBarElement) {
   });
 }
 
-// Call this function after creating the URL bar
+// Find in page functions
+let currentSearchResults = [];
+let currentSearchIndex = -1;
+
+function showFindPrompt() {
+  setMode('search');
+  inputBox = document.createElement('input');
+  inputBox.id = 'qutefox-search-box';
+  inputBox.setAttribute('type', 'text');
+  inputBox.setAttribute('placeholder', 'Find in page...');
+  document.body.appendChild(inputBox);
+  
+  // Create find controls
+  const findControls = document.createElement('div');
+  findControls.id = 'qutefox-find-controls';
+  findControls.innerHTML = `
+    <span id="qutefox-find-count">0/0</span>
+    <button id="qutefox-find-prev">◄</button>
+    <button id="qutefox-find-next">►</button>
+    <button id="qutefox-find-close">✕</button>
+  `;
+  document.body.appendChild(findControls);
+  
+  // Position the controls next to the search box
+  const boxRect = inputBox.getBoundingClientRect();
+  findControls.style.top = `${boxRect.top}px`;
+  findControls.style.left = `${boxRect.right + 10}px`;
+  
+  // Add event listeners
+  document.getElementById('qutefox-find-prev').addEventListener('click', findPrevious);
+  document.getElementById('qutefox-find-next').addEventListener('click', findNext);
+  document.getElementById('qutefox-find-close').addEventListener('click', () => {
+    clearSearch();
+    removeFindPrompt();
+  });
+  
+  // Real-time search as user types
+  inputBox.addEventListener('input', () => {
+    performRealTimeSearch(inputBox.value);
+  });
+  
+  // Handle keyboard navigation
+  inputBox.addEventListener('keydown', (e) => {
+    console.log('HERE:');
+    console.log(e);
+    if (e.key === 'Escape') {
+      clearSearch();
+      removeFindPrompt();
+      e.preventDefault();
+    } else if (e.key === 'Enter') {
+      if (e.shiftKey) {
+        findPrevious();
+      } else {
+        findNext();
+      }
+      e.preventDefault();
+    }
+  });
+  
+  inputBox.focus();
+  
+  function removeFindPrompt() {
+    document.body.removeChild(inputBox);
+    document.body.removeChild(findControls);
+    setMode('normal');
+  }
+}
+
+function performRealTimeSearch(text) {
+  // Clear previous results
+  clearHighlights();
+  
+  if (!text || text.trim() === '') {
+    updateFindCount(0, 0);
+    return;
+  }
+  
+  // Create a text node iterator
+  const textNodes = [];
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    { acceptNode: node => node.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT }
+  );
+  
+  let node;
+  while (node = walker.nextNode()) {
+    textNodes.push(node);
+  }
+  
+  // Search for matches and highlight them
+  currentSearchResults = [];
+  const searchRegex = new RegExp(escapeRegExp(text), 'gi');
+  
+  textNodes.forEach(textNode => {
+    const nodeText = textNode.nodeValue;
+    let match;
+    let lastIndex = 0;
+    const matches = [];
+    searchRegex.lastIndex = 0;
+    
+    while ((match = searchRegex.exec(nodeText)) !== null) {
+      matches.push({
+        node: textNode,
+        startOffset: match.index,
+        endOffset: match.index + match[0].length
+      });
+    }
+    
+    if (matches.length > 0) {
+      currentSearchResults = currentSearchResults.concat(matches);
+    }
+  });
+  
+  // Highlight all matches
+  highlightMatches();
+  
+  // Set index to first match and focus it
+  currentSearchIndex = currentSearchResults.length > 0 ? 0 : -1;
+  focusCurrentMatch();
+  
+  // Update match count
+  updateFindCount(currentSearchIndex + 1, currentSearchResults.length);
+}
+
+function highlightMatches() {
+  currentSearchResults.forEach((match, index) => {
+    const range = document.createRange();
+    range.setStart(match.node, match.startOffset);
+    range.setEnd(match.node, match.endOffset);
+    
+    const highlight = document.createElement('span');
+    highlight.className = 'qutefox-search-highlight';
+    highlight.dataset.index = index;
+    
+    range.surroundContents(highlight);
+    
+    // Store reference to the highlight element
+    match.element = highlight;
+  });
+}
+
+function focusCurrentMatch() {
+  if (currentSearchIndex >= 0 && currentSearchIndex < currentSearchResults.length) {
+    // Remove current focus class from all highlights
+    document.querySelectorAll('.qutefox-search-highlight-current').forEach(el => {
+      el.classList.remove('qutefox-search-highlight-current');
+    });
+    
+    // Add focus class to current match
+    const match = currentSearchResults[currentSearchIndex];
+    if (match && match.element) {
+      match.element.classList.add('qutefox-search-highlight-current');
+      match.element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }
+  }
+}
+
+function findNext() {
+  if (currentSearchResults.length === 0) return;
+  
+  currentSearchIndex = (currentSearchIndex + 1) % currentSearchResults.length;
+  focusCurrentMatch();
+  updateFindCount(currentSearchIndex + 1, currentSearchResults.length);
+}
+
+function findPrevious() {
+  if (currentSearchResults.length === 0) return;
+  
+  currentSearchIndex = (currentSearchIndex - 1 + currentSearchResults.length) % currentSearchResults.length;
+  focusCurrentMatch();
+  updateFindCount(currentSearchIndex + 1, currentSearchResults.length);
+}
+
+function clearHighlights() {
+  document.querySelectorAll('.qutefox-search-highlight').forEach(el => {
+    const parent = el.parentNode;
+    if (parent) {
+      // Replace highlight element with its text content
+      parent.replaceChild(document.createTextNode(el.textContent), el);
+      parent.normalize(); // Merge adjacent text nodes
+    }
+  });
+  
+  currentSearchResults = [];
+  currentSearchIndex = -1;
+}
+
+function clearSearch() {
+  clearHighlights();
+  updateFindCount(0, 0);
+}
+
+function updateFindCount(current, total) {
+  const countElement = document.getElementById('qutefox-find-count');
+  if (countElement) {
+    countElement.textContent = `${current}/${total}`;
+  }
+}
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// command promptt
+// Show command prompt with suggestions
+function showCommandPrompt() {
+  inputBox = document.createElement('input');
+  inputBox.id = 'qutefox-command';
+  inputBox.setAttribute('type', 'text');
+  inputBox.setAttribute('placeholder', ':');
+  document.body.appendChild(inputBox);
+  
+  const suggestionsContainer = document.createElement('div');
+  suggestionsContainer.id = 'qutefox-command-suggestions';
+  document.body.appendChild(suggestionsContainer);
+  
+  // Command definitions with descriptions
+  const commands = [
+    { command: 'o', description: 'Open URL in current tab' },
+    { command: 'O', description: 'Open URL in new tab' },
+    { command: 'f', description: 'Find in page' },
+    { command: 'u', description: 'Undo closed tab' },
+    { command: 'r', description: 'Reload page' },
+    { command: 'h', description: 'Go back in history' },
+    { command: 'l', description: 'Go forward in history' },
+    { command: 'gg', description: 'Go to top of page' },
+    { command: 'G', description: 'Go to bottom of page' }
+    // Add more commands as needed
+  ];
+  
+  // Show initial suggestions
+  showCommandSuggestions('', commands);
+  
+  // Update suggestions as user types
+  inputBox.addEventListener('input', () => {
+    const query = inputBox.value;
+    const filtered = commands.filter(cmd => 
+      cmd.command.startsWith(query) || cmd.description.toLowerCase().includes(query.toLowerCase())
+    );
+    showCommandSuggestions(query, filtered);
+  });
+  
+  // Handle command selection
+  // inputBox.addEventListener('keydown', (e) => {
+  //   if (e.key === 'Enter') {
+  //     executeCommand(inputBox.value);
+  //     removeCommandPrompt();
+  //   } else if (e.key === 'Escape') {
+  //     removeCommandPrompt();
+  //   }
+  // });
+  
+  inputBox.focus();
+  
+  function showCommandSuggestions(query, filteredCommands) {
+    let html = '';
+    filteredCommands.forEach(cmd => {
+      html += `
+        <div class="qutefox-command-suggestion">
+          <span class="qutefox-command-key">${cmd.command}</span>
+          <span class="qutefox-command-description">${cmd.description}</span>
+        </div>
+      `;
+    });
+    
+    suggestionsContainer.innerHTML = html;
+    
+    // Position the suggestions container
+    const boxRect = inputBox.getBoundingClientRect();
+    suggestionsContainer.style.top = `${boxRect.bottom + 5}px`;
+    suggestionsContainer.style.left = `${boxRect.left}px`;
+    suggestionsContainer.style.width = `${boxRect.width}px`;
+    suggestionsContainer.style.display = filteredCommands.length ? 'block' : 'none';
+    
+    // Add click handlers to suggestions
+    document.querySelectorAll('.qutefox-command-suggestion').forEach(el => {
+      el.addEventListener('click', () => {
+        const cmd = el.querySelector('.qutefox-command-key').textContent;
+        processCommand(cmd);
+        removeCommandPrompt();
+      });
+    });
+  }
+  
+  function removeCommandPrompt() {
+    document.body.removeChild(inputBox);
+    document.body.removeChild(suggestionsContainer);
+  }
+ }

@@ -60,6 +60,14 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (recentlyClosedTabs.length > 10) {
       recentlyClosedTabs.pop();
     }
+  } else if (message.type === 'find') {
+    browser.find.find(message.query).then(results => {
+      if (results.count > 0) {
+        browser.find.highlightResults();
+      }
+    });
+  } else if(message.type === 'stopFind') {
+
   }
   else if (message.type === 'reopenTab') {
     browser.sessions.getRecentlyClosed({ maxResults: 1 })
